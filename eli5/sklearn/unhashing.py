@@ -37,10 +37,12 @@ class InvertableHashingVectorizer(BaseEstimator, TransformerMixin):
     :meth:`transform` works the same as HashingVectorizer.transform.
     """
     def __init__(self, vec,
-                 unkn_template="FEATURE[%d]"):
+                 unkn_template="FEATURE[%d]",
+                 always_signed=None):
         # type: (HashingVectorizer, str) -> None
         self.vec = vec
         self.unkn_template = unkn_template
+        self.always_signed = always_signed
         self.unhasher = FeatureUnhasher(
             hasher=vec._get_hasher(),
             unkn_template=unkn_template,
@@ -59,7 +61,7 @@ class InvertableHashingVectorizer(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         return self.vec.transform(X, y)
 
-    def get_feature_names(self, always_signed=True):
+    def get_feature_names(self, always_signed=None):
         """
         Return feature names.
         This is a best-effort function which tries to reconstruct feature
@@ -69,10 +71,13 @@ class InvertableHashingVectorizer(BaseEstimator, TransformerMixin):
         each term in feature names is prepended with its sign. If it is False,
         signs are only shown in case of possible collisions of different sign.
 
-        You probably want always_signed=True if you're checking
+        You probably want always_signed=True (default) if you're checking
         unprocessed classifier coefficients, and always_signed=False
         if you've taken care of :attr:`column_signs_`.
         """
+        if always_signed is None:
+            always_signed = (
+                self.always_signed if self.always_signed is not None else True)
         return self.unhasher.get_feature_names(
             always_signed=always_signed,
             always_positive=self._always_positive(),

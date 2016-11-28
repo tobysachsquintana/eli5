@@ -19,6 +19,7 @@ from sklearn.linear_model import (
     SGDClassifier,
     SGDRegressor,
 )
+from sklearn.pipeline import FeatureUnion
 from sklearn.svm import LinearSVC, LinearSVR
 from sklearn.multiclass import OneVsRestClassifier
 
@@ -171,13 +172,30 @@ def _get_X(doc, vec=None, vectorized=False):
 
 
 def _handle_vec(clf, doc, vec, vectorized, feature_names):
-    if isinstance(vec, HashingVectorizer) and not vectorized:
-        vec = InvertableHashingVectorizer(vec)
-        vec.fit([doc])
+    if not vectorized:
+        if isinstance(vec, HashingVectorizer):
+            vec = InvertableHashingVectorizer(vec)
+            vec.fit([doc])
+
+        elif isinstance(vec, FeatureUnion) and any(
+                isinstance(v, HashingVectorizer) for _, v in vec.transformer_list):
+            transformer_list = []
+            for name, _vec in vec.transformer_list:
+                if isinstance(_vec, HashingVectorizer):
+                    _vec = InvertableHashingVectorizer(
+                        _vec, always_signed=False)
+                    _vec.fit([doc])
+                transformer_list.append((name, _vec))
+            vec = FeatureUnion(
+                transformer_list,
+                transformer_weights=vec.transformer_weights,
+                n_jobs=vec.n_jobs)
+
     if is_invhashing(vec) and feature_names is None:
         # Explaining predictions does not need coef_scale,
         # because it is handled by the vectorizer.
         feature_names = vec.get_feature_names(always_signed=False)
+
     feature_names = get_feature_names(clf, vec, feature_names=feature_names)
     return vec, feature_names
 
